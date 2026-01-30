@@ -24,7 +24,7 @@ export default async function () {
   const page = await context.newPage();
 
   // Open quiz join page
-  await page.goto('https://alientux.com/join/126551');
+  await page.goto('https://alientux.com/join/641456');
 
   // Enter username (VM name + VU)
   await page.fill('#name', `user_${vmName}_${__VU}`);
