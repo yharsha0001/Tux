@@ -41,7 +41,7 @@ export default async function () {
     await page.click('//button[text()="Join Quiz"]');
 
     console.log(`User ${vmName}_${__VU} joined quiz successfully`);
-    await page.waitForTimeout(5 * 60 * 1000);
+    await page.waitForTimeout(10 * 60 * 1000);
   } finally {
     // Always close browser cleanly
     await page.close();
