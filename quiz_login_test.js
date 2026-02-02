@@ -50,4 +50,29 @@ export default async function () {
   });
 
   try {
-    await pa
+    await page.goto('https://alientux.com/join/431914', {
+      waitUntil: 'networkidle',
+      timeout: 60000,
+    });
+
+    await page.fill('#name', `debug_${vmName}_${__VU}`);
+    await page.click('//button[text()="Join Quiz"]');
+
+    console.log(`User ${vmName}_${__VU} joined quiz successfully`);
+
+    // Keep session alive
+    const totalSeconds = 10 * 60;
+    const intervalSeconds = 5;
+
+    for (let elapsed = 0; elapsed < totalSeconds; elapsed += intervalSeconds) {
+      await page.mouse.move(
+        200 + Math.random() * 400,
+        200 + Math.random() * 300
+      );
+      await sleep(intervalSeconds);
+    }
+  } finally {
+    await page.close();
+    await context.close();
+  }
+}
