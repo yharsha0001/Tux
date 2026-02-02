@@ -7,7 +7,7 @@ export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 20,            // keep low for debugging
+      vus: 20,            // keep low
       iterations: 1,
       maxDuration: '15m',
       options: {
@@ -22,32 +22,8 @@ export const options = {
 export default async function () {
   sleep(Math.random() * 2);
 
-  const context = await browser.newContext({
-    viewport: { width: 1280, height: 800 },
-  });
+  const context = await browser.newContext();
   const page = await context.newPage();
-
-  // -------------------------------
-  // ✅ SAFE DEBUG LISTENERS
-  // -------------------------------
-
-  page.on('framenavigated', frame => {
-    console.error(`NAVIGATION detected for ${vmName}_${__VU}: ${frame.url()}`);
-  });
-
-  page.on('requestfailed', request => {
-    console.error(
-      `REQUEST FAILED for ${vmName}_${__VU}: ${request.url()} - ${request.failure()?.errorText}`
-    );
-  });
-
-  page.on('console', msg => {
-    console.log(`[BROWSER ${vmName}_${__VU}] ${msg.type()}: ${msg.text()}`);
-  });
-
-  page.on('pageerror', err => {
-    console.error(`[PAGE ERROR ${vmName}_${__VU}]`, err);
-  });
 
   try {
     await page.goto('https://alientux.com/join/431914', {
@@ -58,18 +34,23 @@ export default async function () {
     await page.fill('#name', `debug_${vmName}_${__VU}`);
     await page.click('//button[text()="Join Quiz"]');
 
-    console.log(`User ${vmName}_${__VU} joined quiz successfully`);
+    console.log(`JOINED ${vmName}_${__VU}`);
 
-    // Keep session alive
-    const totalSeconds = 10 * 60;
-    const intervalSeconds = 5;
+    // -----------------------------------
+    // HEARTBEAT CHECK (EVERY 5 SECONDS)
+    // -----------------------------------
 
-    for (let elapsed = 0; elapsed < totalSeconds; elapsed += intervalSeconds) {
-      await page.mouse.move(
-        200 + Math.random() * 400,
-        200 + Math.random() * 300
-      );
-      await sleep(intervalSeconds);
+    for (let i = 0; i < 120; i++) { // 10 minutes
+      try {
+        // Simple DOM read – if page is alive, this works
+        await page.evaluate(() => document.title);
+        console.log(`HEARTBEAT OK ${vmName}_${__VU}`);
+      } catch (err) {
+        console.error(`HEARTBEAT FAILED ${vmName}_${__VU}`, err);
+        break;
+      }
+
+      await sleep(5);
     }
   } finally {
     await page.close();
