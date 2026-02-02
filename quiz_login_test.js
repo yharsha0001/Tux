@@ -7,7 +7,7 @@ export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 20,             // keep LOW for debugging
+      vus: 20,            // keep low for debugging
       iterations: 1,
       maxDuration: '15m',
       options: {
@@ -20,7 +20,6 @@ export const options = {
 };
 
 export default async function () {
-  // Stagger startup to avoid Chromium race
   sleep(Math.random() * 2);
 
   const context = await browser.newContext({
@@ -29,12 +28,8 @@ export default async function () {
   const page = await context.newPage();
 
   // -------------------------------
-  // 🔴 CRITICAL DEBUG LISTENERS
+  // ✅ SAFE DEBUG LISTENERS
   // -------------------------------
-
-  page.on('close', () => {
-    console.error(`PAGE CLOSED for ${vmName}_${__VU}`);
-  });
 
   page.on('framenavigated', frame => {
     console.error(`NAVIGATION detected for ${vmName}_${__VU}: ${frame.url()}`);
@@ -55,36 +50,4 @@ export default async function () {
   });
 
   try {
-    // Open quiz join page
-    await page.goto('https://alientux.com/join/052374', {
-      waitUntil: 'networkidle',
-      timeout: 60000,
-    });
-
-    // Join quiz
-    await page.fill('#name', `debug_${vmName}_${__VU}`);
-    await page.click('//button[text()="Join Quiz"]');
-
-    console.log(`User ${vmName}_${__VU} joined quiz successfully`);
-
-    // -----------------------------------
-    // KEEP SESSION ALIVE (10 MINUTES)
-    // -----------------------------------
-
-    const totalSeconds = 10 * 60;
-    const intervalSeconds = 5;
-
-    for (let elapsed = 0; elapsed < totalSeconds; elapsed += intervalSeconds) {
-      const x = 200 + Math.random() * 400;
-      const y = 200 + Math.random() * 300;
-
-      await page.mouse.move(x, y);
-      await sleep(intervalSeconds);
-    }
-
-    console.log(`User ${vmName}_${__VU} finished session`);
-  } finally {
-    await page.close();
-    await context.close();
-  }
-}
+    await pa
