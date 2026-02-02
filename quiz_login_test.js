@@ -8,7 +8,7 @@ export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 30,              // adjust per VM (40 recommended for stability)
+      vus: 20,              // adjust per VM (40 recommended for stability)
       iterations: 1,       // each VU runs once
       maxDuration: '10m',  // safety timeout
       options: {
