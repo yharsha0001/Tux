@@ -1,16 +1,15 @@
 import { browser } from 'k6/browser';
 import { sleep } from 'k6';
 
-// Read VM name from environment variable
 const vmName = __ENV.K6_VM_NAME || 'unknown_vm';
 
 export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 20,              // adjust per VM (40 recommended for stability)
-      iterations: 1,       // each VU runs once
-      maxDuration: '10m',  // safety timeout
+      vus: 20,             // keep LOW for debugging
+      iterations: 1,
+      maxDuration: '15m',
       options: {
         browser: {
           type: 'chromium',
@@ -21,11 +20,39 @@ export const options = {
 };
 
 export default async function () {
-  // ✅ FIX 1: stagger browser startup (CRITICAL)
-  sleep(Math.random() * 2); // 0–2 seconds random delay
+  // Stagger startup to avoid Chromium race
+  sleep(Math.random() * 2);
 
-  const context = await browser.newContext();
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 800 },
+  });
   const page = await context.newPage();
+
+  // -------------------------------
+  // 🔴 CRITICAL DEBUG LISTENERS
+  // -------------------------------
+
+  page.on('close', () => {
+    console.error(`PAGE CLOSED for ${vmName}_${__VU}`);
+  });
+
+  page.on('framenavigated', frame => {
+    console.error(`NAVIGATION detected for ${vmName}_${__VU}: ${frame.url()}`);
+  });
+
+  page.on('requestfailed', request => {
+    console.error(
+      `REQUEST FAILED for ${vmName}_${__VU}: ${request.url()} - ${request.failure()?.errorText}`
+    );
+  });
+
+  page.on('console', msg => {
+    console.log(`[BROWSER ${vmName}_${__VU}] ${msg.type()}: ${msg.text()}`);
+  });
+
+  page.on('pageerror', err => {
+    console.error(`[PAGE ERROR ${vmName}_${__VU}]`, err);
+  });
 
   try {
     // Open quiz join page
@@ -34,31 +61,29 @@ export default async function () {
       timeout: 60000,
     });
 
-    // Enter username (VM name + VU)
-    await page.fill('#name', `user_${vmName}_${__VU}`);
-
-    // Click Join Quiz
+    // Join quiz
+    await page.fill('#name', `debug_${vmName}_${__VU}`);
     await page.click('//button[text()="Join Quiz"]');
 
     console.log(`User ${vmName}_${__VU} joined quiz successfully`);
-    // -----------------------------
-    // ✅ SIMULATE REAL USER ACTIVITY
-    // -----------------------------
 
-    const sessionDurationSeconds = 10 * 60; // 10 minutes
-    const activityIntervalSeconds = 5;      // move mouse every 5 seconds
+    // -----------------------------------
+    // KEEP SESSION ALIVE (10 MINUTES)
+    // -----------------------------------
 
-    for (let elapsed = 0; elapsed < sessionDurationSeconds; elapsed += activityIntervalSeconds) {
+    const totalSeconds = 10 * 60;
+    const intervalSeconds = 5;
+
+    for (let elapsed = 0; elapsed < totalSeconds; elapsed += intervalSeconds) {
       const x = 200 + Math.random() * 400;
       const y = 200 + Math.random() * 300;
 
       await page.mouse.move(x, y);
-      await sleep(activityIntervalSeconds);
+      await sleep(intervalSeconds);
     }
 
-    console.log(`User ${vmName}_${__VU} session completed`);
+    console.log(`User ${vmName}_${__VU} finished session`);
   } finally {
-    // Always close browser cleanly
     await page.close();
     await context.close();
   }
