@@ -7,7 +7,7 @@ export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 20,            // keep low
+      vus: 20,              // keep low while debugging
       iterations: 1,
       maxDuration: '15m',
       options: {
@@ -20,13 +20,18 @@ export const options = {
 };
 
 export default async function () {
+  // Stagger startup to avoid Chromium race
   sleep(Math.random() * 2);
 
-  const context = await browser.newContext();
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 800 },
+  });
+
   const page = await context.newPage();
 
   try {
-    await page.goto('https://alientux.com/join/052374', {
+    // Join quiz
+    await page.goto('https://alientux.com/join/431914', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
@@ -36,24 +41,24 @@ export default async function () {
 
     console.log(`JOINED ${vmName}_${__VU}`);
 
-    // -----------------------------------
-    // HEARTBEAT CHECK (EVERY 5 SECONDS)
-    // -----------------------------------
-
-    for (let i = 0; i < 120; i++) { // 10 minutes
+    // ----------------------------------
+    // HEARTBEAT LOOP (10 minutes total)
+    // ----------------------------------
+    for (let i = 0; i < 120; i++) {
       try {
-        // Simple DOM read – if page is alive, this works
+        // If this fails → Chromium renderer crashed
         await page.evaluate(() => document.title);
         console.log(`HEARTBEAT OK ${vmName}_${__VU}`);
       } catch (err) {
-        console.error(`HEARTBEAT FAILED ${vmName}_${__VU}`, err);
+        console.error(`HEARTBEAT FAILED ${vmName}_${__VU}: Target crashed`);
         break;
       }
 
       await sleep(5);
     }
   } finally {
-    await page.close();
-    await context.close();
+    // Clean shutdown
+    try { await page.close(); } catch (_) {}
+    try { await context.close(); } catch (_) {}
   }
 }
