@@ -41,7 +41,22 @@ export default async function () {
     await page.click('//button[text()="Join Quiz"]');
 
     console.log(`User ${vmName}_${__VU} joined quiz successfully`);
-    await page.waitForTimeout(10 * 60 * 1000);
+    // -----------------------------
+    // ✅ SIMULATE REAL USER ACTIVITY
+    // -----------------------------
+
+    const sessionDurationSeconds = 10 * 60; // 10 minutes
+    const activityIntervalSeconds = 5;      // move mouse every 5 seconds
+
+    for (let elapsed = 0; elapsed < sessionDurationSeconds; elapsed += activityIntervalSeconds) {
+      const x = 200 + Math.random() * 400;
+      const y = 200 + Math.random() * 300;
+
+      await page.mouse.move(x, y);
+      await sleep(activityIntervalSeconds);
+    }
+
+    console.log(`User ${vmName}_${__VU} session completed`);
   } finally {
     // Always close browser cleanly
     await page.close();
