@@ -2,7 +2,7 @@ import { browser } from 'k6/browser';
 import { sleep } from 'k6';
 
 const vmName = __ENV.K6_VM_NAME || 'unknown_vm';
-const TOTAL_QUESTIONS = 5;
+const TOTAL_QUESTIONS = 2;
 
 export const options = {
   scenarios: {
@@ -75,7 +75,7 @@ export default async function () {
         { timeout: 90000 }
       );
     }
-    await page.waitForTimeout(2 * 60 * 1000);
+    await page.waitForTimeout(6 * 60 * 1000);
   } finally {
     await page.close();
     await context.close();
