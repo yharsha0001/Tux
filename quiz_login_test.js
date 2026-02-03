@@ -8,7 +8,7 @@ export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 30,
+      vus: 40,
       iterations: 1,
       maxDuration: '6m',
       options: {
@@ -31,7 +31,7 @@ export default async function () {
 
   try {
     // Join quiz
-    await page.goto('https://alientux.com/join/970840', {
+    await page.goto('https://alientux.com/join/944500', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
