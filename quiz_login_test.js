@@ -1,19 +1,22 @@
 import { browser } from 'k6/browser';
 import { sleep } from 'k6';
 
-// Read VM name from environment variable
 const vmName = __ENV.K6_VM_NAME || 'unknown_vm';
+const TOTAL_QUESTIONS = 2;
 
 export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 15,              // adjust per VM (40 recommended for stability)
-      iterations: 1,       // each VU runs once
-      maxDuration: '10m',  // safety timeout
+      vus: 10,
+      iterations: 1,
+      maxDuration: '15m',
       options: {
         browser: {
           type: 'chromium',
+          launchOptions: {
+            args: ['--no-sandbox', '--disable-dev-shm-usage'],
+          },
         },
       },
     },
@@ -21,29 +24,58 @@ export const options = {
 };
 
 export default async function () {
-  // ✅ FIX 1: stagger browser startup (CRITICAL)
-  sleep(Math.random() * 2); // 0–2 seconds random delay
+  sleep(Math.random() * 2);
 
   const context = await browser.newContext();
   const page = await context.newPage();
 
   try {
-    // Open quiz join page
-    await page.goto('https://alientux.com/join/376469', {
+    // Join quiz
+    await page.goto('https://alientux.com/join/058180', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
 
-    // Enter username (VM name + VU)
     await page.fill('#name', `user_${vmName}_${__VU}`);
-
-    // Click Join Quiz
     await page.click('//button[text()="Join Quiz"]');
 
-    console.log(`User ${vmName}_${__VU} joined quiz successfully`);
-    await page.waitForTimeout(10 * 60 * 1000);
+    const options = page.locator('//div/button');
+
+    // wait until first question appears
+    await page.waitForFunction(
+      () => {
+        return Array.from(document.querySelectorAll('span'))
+          .some(s => s.textContent && s.textContent.includes('Question'));
+      },
+      { timeout: 90000 }
+    );
+
+    for (let q = 0; q < TOTAL_QUESTIONS; q++) {
+      // read current question number text
+      const currentQuestion = await page.evaluate(() => {
+        const span = Array.from(document.querySelectorAll('span'))
+          .find(s => s.textContent && s.textContent.includes('Question'));
+        return span ? span.textContent : null;
+      });
+
+      // click answer
+      const answerIndex = q % 4;
+      await options.nth(answerIndex).click();
+
+      // wait until question number changes
+      await page.waitForFunction(
+        (prevText) => {
+          const span = Array.from(document.querySelectorAll('span'))
+            .find(s => s.textContent && s.textContent.includes('Question'));
+          return span && span.textContent !== prevText;
+        },
+        currentQuestion,
+        { timeout: 90000 }
+      );
+    }
+    await page.waitForTimeout(2 * 60 * 1000);
+
   } finally {
-    // Always close browser cleanly
     await page.close();
     await context.close();
   }
