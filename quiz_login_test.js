@@ -10,7 +10,7 @@ export const options = {
       executor: 'per-vu-iterations',
       vus: 10,
       iterations: 1,
-      maxDuration: '15m',
+      maxDuration: '6m',
       options: {
         browser: {
           type: 'chromium',
@@ -73,7 +73,7 @@ export default async function () {
         { timeout: 90000 }
       );
     }
-    await page.waitForTimeout(2 * 60 * 1000);
+    await page.waitForTimeout(6 * 60 * 1000);
 
   } finally {
     await page.close();
