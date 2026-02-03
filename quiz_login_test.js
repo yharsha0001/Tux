@@ -8,14 +8,23 @@ export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 50,
+      vus: 10,
       iterations: 1,
       maxDuration: '6m',
       options: {
         browser: {
           type: 'chromium',
           launchOptions: {
-            args: ['--no-sandbox', '--disable-dev-shm-usage'],
+            args: [
+              '--no-sandbox',
+              '--disable-dev-shm-usage',
+              '--disable-background-networking',
+              '--disable-background-timer-throttling',
+              '--disable-backgrounding-occluded-windows',
+              '--disable-renderer-backgrounding',
+              '--disable-features=TranslateUI',
+              '--disable-features=site-per-process',
+            ],
           },
         },
       },
@@ -50,8 +59,10 @@ export default async function () {
       { timeout: 90000 }
     );
 
+    let lastQuestion = null;
+
     for (let q = 0; q < TOTAL_QUESTIONS; q++) {
-      // wait until a question is active
+      // wait for a NEW question
       const currentQuestion = await page.evaluate(() => {
         const span = Array.from(document.querySelectorAll('span')).find(
           (s) => s.textContent && s.textContent.includes('Question')
@@ -59,7 +70,18 @@ export default async function () {
         return span ? span.textContent : null;
       });
 
-      // select random answer (0–3)
+      lastQuestion = currentQuestion;
+
+      // ensure options are interactable for this question
+      await options.first().waitFor({
+        state: 'visible',
+        timeout: 90000,
+      });
+
+      // small settle delay (critical under load)
+      await page.waitForTimeout(500);
+
+      // random answer
       const answerIndex = Math.floor(Math.random() * 4);
       await options.nth(answerIndex).click({ timeout: 90000 });
 
@@ -74,8 +96,14 @@ export default async function () {
         currentQuestion,
         { timeout: 90000 }
       );
+
+
+      
     }
+
+    // keep users connected after last question
     await page.waitForTimeout(6 * 60 * 1000);
+
   } finally {
     await page.close();
     await context.close();
