@@ -1,15 +1,16 @@
 import { browser } from 'k6/browser';
 import { sleep } from 'k6';
 
+// Read VM name from environment variable
 const vmName = __ENV.K6_VM_NAME || 'unknown_vm';
 
 export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 20,              // keep low while debugging
-      iterations: 1,
-      maxDuration: '15m',
+      vus: 15,              // adjust per VM (40 recommended for stability)
+      iterations: 1,       // each VU runs once
+      maxDuration: '10m',  // safety timeout
       options: {
         browser: {
           type: 'chromium',
@@ -20,45 +21,30 @@ export const options = {
 };
 
 export default async function () {
-  // Stagger startup to avoid Chromium race
-  sleep(Math.random() * 2);
+  // ✅ FIX 1: stagger browser startup (CRITICAL)
+  sleep(Math.random() * 2); // 0–2 seconds random delay
 
-  const context = await browser.newContext({
-    viewport: { width: 1280, height: 800 },
-  });
-
+  const context = await browser.newContext();
   const page = await context.newPage();
 
   try {
-    // Join quiz
+    // Open quiz join page
     await page.goto('https://alientux.com/join/376469', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
 
-    await page.fill('#name', `debug_${vmName}_${__VU}`);
+    // Enter username (VM name + VU)
+    await page.fill('#name', `user_${vmName}_${__VU}`);
+
+    // Click Join Quiz
     await page.click('//button[text()="Join Quiz"]');
 
-    console.log(`JOINED ${vmName}_${__VU}`);
-
-    // ----------------------------------
-    // HEARTBEAT LOOP (10 minutes total)
-    // ----------------------------------
-    for (let i = 0; i < 120; i++) {
-      try {
-        // If this fails → Chromium renderer crashed
-        await page.evaluate(() => document.title);
-        console.log(`HEARTBEAT OK ${vmName}_${__VU}`);
-      } catch (err) {
-        console.error(`HEARTBEAT FAILED ${vmName}_${__VU}: Target crashed`);
-        break;
-      }
-
-      await sleep(5);
-    }
+    console.log(`User ${vmName}_${__VU} joined quiz successfully`);
+    await page.waitForTimeout(10 * 60 * 1000);
   } finally {
-    // Clean shutdown
-    try { await page.close(); } catch (_) {}
-    try { await context.close(); } catch (_) {}
+    // Always close browser cleanly
+    await page.close();
+    await context.close();
   }
 }
