@@ -40,7 +40,7 @@ export default async function () {
 
   try {
     // Join quiz
-    await page.goto('https://alientux.com/join/578796', {
+    await page.goto('https://alientux.com/join/560293', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
