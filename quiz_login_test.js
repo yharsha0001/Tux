@@ -8,7 +8,7 @@ export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 10,
+      vus: 20,
       iterations: 1,
       maxDuration: '6m',
       options: {
@@ -59,7 +59,7 @@ export default async function () {
         Array.from(document.querySelectorAll('span')).some(
           (s) => s.textContent && s.textContent.includes('Question')
         ),
-      { timeout: 90000 }
+      { timeout: 300000 }
     );
 
     // ------------------------------------------------
