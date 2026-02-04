@@ -2,15 +2,15 @@ import { browser } from 'k6/browser';
 import { sleep } from 'k6';
 
 const vmName = __ENV.K6_VM_NAME || 'unknown_vm';
-const TOTAL_QUESTIONS = 2;
+const TOTAL_QUESTIONS = 15;
 
 export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 51,
+      vus: 21,
       iterations: 1,
-      maxDuration: '6m',
+      maxDuration: '20m',
       options: {
         browser: {
           type: 'chromium',
@@ -40,7 +40,7 @@ export default async function () {
 
   try {
     // Join quiz
-    await page.goto('https://alientux.com/join/395922', {
+    await page.goto('https://alientux.com/join/578796', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
@@ -102,7 +102,7 @@ export default async function () {
     }
 
     // keep users connected after last question
-    await page.waitForTimeout(6 * 60 * 1000);
+    await page.waitForTimeout(20 * 60 * 1000);
 
   } finally {
     await page.close();
