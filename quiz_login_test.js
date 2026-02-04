@@ -8,7 +8,7 @@ export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 21,
+      vus: 15,
       iterations: 1,
       maxDuration: '20m',
       options: {
