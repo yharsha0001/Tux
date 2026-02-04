@@ -8,9 +8,9 @@ export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 15,
+      vus: 10,
       iterations: 1,
-      maxDuration: '20m',
+      maxDuration: '6m',
       options: {
         browser: {
           type: 'chromium',
@@ -33,14 +33,17 @@ export const options = {
 };
 
 export default async function () {
+  // Slight stagger to avoid bursts
   sleep(Math.random() * 2);
 
   const context = await browser.newContext();
   const page = await context.newPage();
 
   try {
-    // Join quiz
-    await page.goto('https://alientux.com/join/560293', {
+    // ------------------------------------------------
+    // JOIN QUIZ
+    // ------------------------------------------------
+    await page.goto('https://alientux.com/join/999691', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
@@ -48,9 +51,9 @@ export default async function () {
     await page.fill('#name', `user_${vmName}_${__VU}`);
     await page.click('//button[text()="Join Quiz"]');
 
-    const options = page.locator('//div/button');
-
-    // wait for first question
+    // ------------------------------------------------
+    // WAIT FOR FIRST QUESTION
+    // ------------------------------------------------
     await page.waitForFunction(
       () =>
         Array.from(document.querySelectorAll('span')).some(
@@ -59,33 +62,109 @@ export default async function () {
       { timeout: 90000 }
     );
 
-    let lastQuestion = null;
-
+    // ------------------------------------------------
+    // MAIN QUESTION LOOP
+    // ------------------------------------------------
     for (let q = 0; q < TOTAL_QUESTIONS; q++) {
-      // wait for a NEW question
-      const currentQuestion = await page.evaluate(() => {
+      // Capture current question text
+      const currentQuestionText = await page.evaluate(() => {
         const span = Array.from(document.querySelectorAll('span')).find(
           (s) => s.textContent && s.textContent.includes('Question')
         );
         return span ? span.textContent : null;
       });
 
-      lastQuestion = currentQuestion;
+      // Small settle delay for SPA re-renders
+      await page.waitForTimeout(300);
 
-      // ensure options are interactable for this question
-      await options.first().waitFor({
-        state: 'visible',
-        timeout: 90000,
-      });
+      const mcqOptions = page.locator('//div/button');
+      let answered = false;
 
-      // small settle delay (critical under load)
-      await page.waitForTimeout(500);
+      // ------------------------------------------------
+      // FILL-IN-THE-BLANK (REAL USER INPUT + STATE COMMIT)
+      // ------------------------------------------------
+      try {
+        // Wait until input is truly usable
+        await page.waitForFunction(() => {
+          const input = document.querySelector(
+            "input[placeholder='Type your answer...']"
+          );
+          return (
+            input &&
+            !input.disabled &&
+            !input.readOnly &&
+            input.offsetParent !== null
+          );
+        }, { timeout: 5000 });
 
-      // random answer
-      const answerIndex = Math.floor(Math.random() * 4);
-      await options.nth(answerIndex).click({ timeout: 90000 });
+        const answerText = `user_${vmName}_${__VU}`;
 
-      // wait until admin presents next question
+        // Focus input
+        await page.click("//input[@placeholder='Type your answer...']");
+
+        // Clear existing value (important for reused component)
+        await page.keyboard.press('Control+A');
+        await page.keyboard.press('Backspace');
+
+        // Type like a real human
+        await page.keyboard.type(answerText, { delay: 60 });
+
+        // 🔑 CRITICAL STEP: commit React state
+        await page.keyboard.press('Enter');
+
+        // Wait until submit becomes enabled
+        await page.waitForFunction(() => {
+          const btn = document.querySelector('button');
+          return btn && !btn.disabled;
+        }, { timeout: 5000 });
+
+        // Submit
+        await page.click('//button');
+
+        answered = true;
+      } catch (_) {
+        // Not a fill-in-the-blank question
+      }
+
+      // ------------------------------------------------
+      // MCQ FALLBACK (WAIT UNTIL OPTIONS ARE ENABLED)
+      // ------------------------------------------------
+      if (!answered) {
+        await page.waitForFunction(() => {
+          const buttons = Array.from(document.querySelectorAll('div button'));
+          return buttons.some(
+            (btn) => !btn.disabled && btn.offsetParent !== null
+          );
+        }, { timeout: 90000 });
+
+        const optionCount = await mcqOptions.count();
+        const enabledIndexes = [];
+
+        for (let i = 0; i < optionCount; i++) {
+          const isDisabled = await mcqOptions.nth(i).evaluate(
+            (el) => el.disabled
+          );
+          if (!isDisabled) {
+            enabledIndexes.push(i);
+          }
+        }
+
+        if (enabledIndexes.length === 0) {
+          throw new Error('No enabled MCQ options found');
+        }
+
+        const answerIndex =
+          enabledIndexes[Math.floor(Math.random() * enabledIndexes.length)];
+
+        await mcqOptions.nth(answerIndex).click();
+      }
+
+      // Let submission register
+      await page.waitForTimeout(800);
+
+      // ------------------------------------------------
+      // WAIT FOR NEXT QUESTION
+      // ------------------------------------------------
       await page.waitForFunction(
         (prevText) => {
           const span = Array.from(document.querySelectorAll('span')).find(
@@ -93,16 +172,15 @@ export default async function () {
           );
           return span && span.textContent !== prevText;
         },
-        currentQuestion,
+        currentQuestionText,
         { timeout: 90000 }
       );
-
-
-      
     }
 
-    // keep users connected after last question
-    await page.waitForTimeout(20 * 60 * 1000);
+    // ------------------------------------------------
+    // KEEP USERS CONNECTED AFTER LAST QUESTION
+    // ------------------------------------------------
+    await page.waitForTimeout(6 * 60 * 1000);
 
   } finally {
     await page.close();
