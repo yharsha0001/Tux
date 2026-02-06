@@ -43,7 +43,7 @@ export default async function () {
     // ------------------------------------------------
     // JOIN QUIZ
     // ------------------------------------------------
-    await page.goto('https://staging.d3hp8qpuooif92.amplifyapp.com/join/142004', {
+    await page.goto('https://staging.d3hp8qpuooif92.amplifyapp.com/join/138284', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
