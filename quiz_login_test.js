@@ -2,7 +2,7 @@ import { browser } from 'k6/browser';
 import { sleep } from 'k6';
 
 const vmName = __ENV.K6_VM_NAME || 'unknown_vm';
-const TOTAL_QUESTIONS = 15;
+const TOTAL_QUESTIONS = 20;
 
 export const options = {
   scenarios: {
@@ -10,7 +10,7 @@ export const options = {
       executor: 'per-vu-iterations',
       vus: 10,
       iterations: 1,
-      maxDuration: '6m',
+      maxDuration: '10m',
       options: {
         browser: {
           type: 'chromium',
@@ -43,12 +43,13 @@ export default async function () {
     // ------------------------------------------------
     // JOIN QUIZ
     // ------------------------------------------------
-    await page.goto('https://alientux.com/join/999691', {
+    await page.goto('https://staging.d3hp8qpuooif92.amplifyapp.com/join/142004', {
       waitUntil: 'networkidle',
       timeout: 60000,
     });
 
     await page.fill('#name', `user_${vmName}_${__VU}`);
+    await page.fill('#email', `${vmName}@gmail.com`);
     await page.click('//button[text()="Join Quiz"]');
 
     // ------------------------------------------------
@@ -59,7 +60,7 @@ export default async function () {
         Array.from(document.querySelectorAll('span')).some(
           (s) => s.textContent && s.textContent.includes('Question')
         ),
-      { timeout: 300000 }
+      { timeout: 90000 }
     );
 
     // ------------------------------------------------
@@ -180,7 +181,7 @@ export default async function () {
     // ------------------------------------------------
     // KEEP USERS CONNECTED AFTER LAST QUESTION
     // ------------------------------------------------
-    await page.waitForTimeout(6 * 60 * 1000);
+    await page.waitForTimeout(10 * 60 * 1000);
 
   } finally {
     await page.close();
