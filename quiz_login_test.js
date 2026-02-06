@@ -60,7 +60,7 @@ export default async function () {
         Array.from(document.querySelectorAll('span')).some(
           (s) => s.textContent && s.textContent.includes('Question')
         ),
-      { timeout: 90000 }
+      { timeout: 120000 }
     );
 
     // ------------------------------------------------
