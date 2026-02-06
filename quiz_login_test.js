@@ -8,9 +8,9 @@ export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 10,
+      vus: 11,
       iterations: 1,
-      maxDuration: '10m',
+      maxDuration: '15m',
       options: {
         browser: {
           type: 'chromium',
@@ -181,7 +181,7 @@ export default async function () {
     // ------------------------------------------------
     // KEEP USERS CONNECTED AFTER LAST QUESTION
     // ------------------------------------------------
-    await page.waitForTimeout(10 * 60 * 1000);
+    await page.waitForTimeout(15 * 60 * 1000);
 
   } finally {
     await page.close();
