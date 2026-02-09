@@ -8,22 +8,37 @@ export const options = {
   scenarios: {
     quizUsers: {
       executor: 'per-vu-iterations',
-      vus: 11,
+      vus: 10,               
       iterations: 1,
-      maxDuration: '15m',
+      maxDuration: '10m',
       options: {
         browser: {
           type: 'chromium',
           launchOptions: {
+            headless: true,
             args: [
               '--no-sandbox',
               '--disable-dev-shm-usage',
+              '--disable-gpu',
+              '--disable-software-rasterizer',
+              '--disable-extensions',
               '--disable-background-networking',
               '--disable-background-timer-throttling',
               '--disable-backgrounding-occluded-windows',
               '--disable-renderer-backgrounding',
-              '--disable-features=TranslateUI',
-              '--disable-features=site-per-process',
+              '--disable-features=TranslateUI,site-per-process',
+              '--disable-default-apps',
+              '--disable-sync',
+              '--metrics-recording-only',
+              '--mute-audio',
+              '--no-first-run',
+              '--disable-breakpad',
+              '--disable-component-update',
+              '--disable-notifications',
+              '--disable-logging',
+              '--disable-permissions-api',
+              '--disable-accelerated-2d-canvas',
+              '--js-flags=--max-old-space-size=512', // safe heap cap
             ],
           },
         },
@@ -33,23 +48,25 @@ export const options = {
 };
 
 export default async function () {
-  // Slight stagger to avoid bursts
-  sleep(Math.random() * 2);
+  // Stagger joins to avoid bursts
+  sleep(Math.random() * 5);
 
   const context = await browser.newContext();
   const page = await context.newPage();
 
   try {
+    console.log(`[${vmName}_${__VU}] joining quiz`);
+
     // ------------------------------------------------
     // JOIN QUIZ
     // ------------------------------------------------
-    await page.goto('https://staging.d3hp8qpuooif92.amplifyapp.com/join/138284', {
-      waitUntil: 'networkidle',
-      timeout: 60000,
-    });
+    await page.goto(
+      'https://alientux.com/join/381770',
+      { waitUntil: 'networkidle', timeout: 60000 }
+    );
 
     await page.fill('#name', `user_${vmName}_${__VU}`);
-    await page.fill('#email', `${vmName}@gmail.com`);
+    await page.fill('#email', `${vmName}_${__VU}@gmail.com`);
     await page.click('//button[text()="Join Quiz"]');
 
     // ------------------------------------------------
@@ -67,7 +84,6 @@ export default async function () {
     // MAIN QUESTION LOOP
     // ------------------------------------------------
     for (let q = 0; q < TOTAL_QUESTIONS; q++) {
-      // Capture current question text
       const currentQuestionText = await page.evaluate(() => {
         const span = Array.from(document.querySelectorAll('span')).find(
           (s) => s.textContent && s.textContent.includes('Question')
@@ -75,113 +91,83 @@ export default async function () {
         return span ? span.textContent : null;
       });
 
-      // Small settle delay for SPA re-renders
-      await page.waitForTimeout(300);
+      await page.waitForTimeout(500);
 
       const mcqOptions = page.locator('//div/button');
       let answered = false;
 
-      // ------------------------------------------------
-      // FILL-IN-THE-BLANK (REAL USER INPUT + STATE COMMIT)
-      // ------------------------------------------------
+      // -------- Fill-in-the-blank --------
       try {
-        // Wait until input is truly usable
         await page.waitForFunction(() => {
           const input = document.querySelector(
             "input[placeholder='Type your answer...']"
           );
-          return (
-            input &&
-            !input.disabled &&
-            !input.readOnly &&
-            input.offsetParent !== null
-          );
+          return input && !input.disabled && input.offsetParent !== null;
         }, { timeout: 5000 });
 
-        const answerText = `user_${vmName}_${__VU}`;
-
-        // Focus input
         await page.click("//input[@placeholder='Type your answer...']");
-
-        // Clear existing value (important for reused component)
         await page.keyboard.press('Control+A');
         await page.keyboard.press('Backspace');
-
-        // Type like a real human
-        await page.keyboard.type(answerText, { delay: 60 });
-
-        // 🔑 CRITICAL STEP: commit React state
+        await page.keyboard.type(`user_${vmName}_${__VU}`, { delay: 60 });
         await page.keyboard.press('Enter');
 
-        // Wait until submit becomes enabled
         await page.waitForFunction(() => {
           const btn = document.querySelector('button');
           return btn && !btn.disabled;
         }, { timeout: 5000 });
 
-        // Submit
         await page.click('//button');
-
         answered = true;
       } catch (_) {
-        // Not a fill-in-the-blank question
+        // not a text question
       }
 
-      // ------------------------------------------------
-      // MCQ FALLBACK (WAIT UNTIL OPTIONS ARE ENABLED)
-      // ------------------------------------------------
+      // -------- MCQ fallback --------
       if (!answered) {
         await page.waitForFunction(() => {
           const buttons = Array.from(document.querySelectorAll('div button'));
           return buttons.some(
             (btn) => !btn.disabled && btn.offsetParent !== null
           );
-        }, { timeout: 90000 });
+        }, { timeout: 120000 });
 
         const optionCount = await mcqOptions.count();
-        const enabledIndexes = [];
+        const enabled = [];
 
         for (let i = 0; i < optionCount; i++) {
-          const isDisabled = await mcqOptions.nth(i).evaluate(
+          const disabled = await mcqOptions.nth(i).evaluate(
             (el) => el.disabled
           );
-          if (!isDisabled) {
-            enabledIndexes.push(i);
-          }
+          if (!disabled) enabled.push(i);
         }
 
-        if (enabledIndexes.length === 0) {
-          throw new Error('No enabled MCQ options found');
-        }
-
-        const answerIndex =
-          enabledIndexes[Math.floor(Math.random() * enabledIndexes.length)];
-
-        await mcqOptions.nth(answerIndex).click();
+        const idx = enabled[Math.floor(Math.random() * enabled.length)];
+        await mcqOptions.nth(idx).click();
       }
 
-      // Let submission register
-      await page.waitForTimeout(800);
+      await page.waitForTimeout(1000);
 
-      // ------------------------------------------------
-      // WAIT FOR NEXT QUESTION
-      // ------------------------------------------------
-      await page.waitForFunction(
-        (prevText) => {
-          const span = Array.from(document.querySelectorAll('span')).find(
-            (s) => s.textContent && s.textContent.includes('Question')
-          );
-          return span && span.textContent !== prevText;
-        },
-        currentQuestionText,
-        { timeout: 90000 }
-      );
+      // -------- Wait for next question --------
+      if (q < TOTAL_QUESTIONS - 1) {
+        await page.waitForFunction(
+          (prev) => {
+            const span = Array.from(document.querySelectorAll('span')).find(
+              (s) => s.textContent && s.textContent.includes('Question')
+            );
+            return span && span.textContent !== prev;
+          },
+          currentQuestionText,
+          { timeout: 120000 }
+        );
+      }
     }
 
     // ------------------------------------------------
-    // KEEP USERS CONNECTED AFTER LAST QUESTION
+    // KEEP USER CONNECTED (WEBSOCKET STAYS ALIVE)
     // ------------------------------------------------
-    await page.waitForTimeout(15 * 60 * 1000);
+    await page.waitForTimeout(10 * 60 * 1000);
+
+    console.log(`[${vmName}_${__VU}] quiz completed`);
 
   } finally {
     await page.close();
