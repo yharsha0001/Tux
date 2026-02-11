@@ -61,7 +61,7 @@ export default async function () {
     // JOIN QUIZ
     // ------------------------------------------------
     await page.goto(
-      'https://alientux.com/join/254234',
+      'https://alientux.com/join/495977',
       { waitUntil: 'networkidle', timeout: 60000 }
     );
 
