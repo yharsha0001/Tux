@@ -66,7 +66,7 @@ export default async function () {
     );
 
     await page.fill('#name', `user_${vmName}_${__VU}`);
-    await page.fill('#email', `${vmName}_${__VU}@gmail.com`);
+    //await page.fill('#email', `${vmName}_${__VU}@gmail.com`);
     await page.click('//button[text()="Join Quiz"]');
 
     // ------------------------------------------------
